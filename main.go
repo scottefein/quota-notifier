@@ -43,7 +43,7 @@ func nullHandler(w http.ResponseWriter, r *http.Request) {
 func logHandler(w http.ResponseWriter, r *http.Request) {
 	quotas := getQuotasToLog()
 	for _, quota := range quotas {
-		fmt.Println(quota)
+		fmt.Printf("EXCEEDED QUOTA: %s", quota)
 	}
 }
 
