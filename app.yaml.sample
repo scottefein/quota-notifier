@@ -1,0 +1,11 @@
+env: flex
+runtime: go
+env_variables:
+  PROJECT_ID: ""
+  THRESHOLD: .8
+  MG_API_KEY: 
+  MG_DOMAIN: 
+  MG_FROM_EMAIL: 
+  MG_TO_EMAIL: 
+  MG_PUBLIC_API_KEY: 
+  MG_URL: "https://api.mailgun.net/v3"

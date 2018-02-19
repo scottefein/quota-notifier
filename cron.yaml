@@ -1,0 +1,7 @@
+cron:
+- description: "6 Hour Email Quota Check"
+  url: /check_quotas
+  schedule: every 6 hours
+- description: "Log Quotas to Stackdriver"
+  url: /log_quotas
+  schedule: every 10 minutes

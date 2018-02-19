@@ -18,16 +18,64 @@ import (
 	"fmt"
 	"log"
 
+	"os"
+
+	"strconv"
+
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/compute/v0.beta"
+	"gopkg.in/mailgun/mailgun-go.v1"
+	"net/http"
 )
 
 func main() {
 
-	// Project ID for this request.
-	project := "scott-demo-project" // TODO: Update placeholder value.
-	threshold := .2                 //What threshold you want to increase your quotas at
+	http.HandleFunc("/", nullHandler)
+	http.HandleFunc("/check_quotas", notifyHandler)
+	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func nullHandler(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func logHandler(w http.ResponseWriter, r *http.Request) {
+	quotas := getQuotasToLog()
+	for _, quota := range quotas {
+		fmt.Println(quota)
+	}
+}
+
+func notifyHandler(w http.ResponseWriter, r *http.Request) {
+	quotas := getQuotasToLog()
+	quotaString := ""
+	for _, quota := range quotas {
+		quotaString = fmt.Sprintf("%s\n", quota)
+	}
+	mg := mailgun.NewMailgun(os.Getenv("MG_DOMAIN"), os.Getenv("MG_API_KEY"), os.Getenv("MG_PUBLIC_API_KEY"))
+	message := mg.NewMessage(
+		os.Getenv("MG_FROM_EMAIL"),
+		"GCP Quotas Above Utilization Threshold",
+		quotaString,
+		os.Getenv("MG_TO_EMAIL"))
+	resp, id, err := mg.Send(message)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("ID: %s Resp: %s\n", id, resp)
+}
+
+func getQuotasToLog() []string {
+
+	quotasToLog := []string{}
+	project := os.Getenv("PROJECT_ID")
+	threshold_string := os.Getenv("THRESHOLD")
+	threshold, err := strconv.ParseFloat(threshold_string, 64)
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	ctx := context.Background()
 
@@ -49,12 +97,12 @@ func main() {
 	for _, quota := range projResp.Quotas {
 		utilized := quota.Usage / quota.Limit
 		if utilized > threshold {
-			fmt.Printf("%s - %#v\n", quota.Metric, utilized)
+			quotasToLog = append(quotasToLog, fmt.Sprintf("%s - %#v\n", quota.Metric, utilized))
 		}
 
 	}
 
-	regions := []string{"us-east1", "us-central1", "us-west1"} // TODO: Update with the regions you're using in this project
+	regions := []string{"us-east1", "us-east4", "us-central1", "us-west1"} // TODO: Update with the regions you're using in this project
 
 	for _, region := range regions {
 		regionResp, err := computeService.Regions.Get(project, region).Context(ctx).Do()
@@ -65,9 +113,9 @@ func main() {
 		for _, regquota := range regionResp.Quotas {
 			utilized := regquota.Usage / regquota.Limit
 			if utilized > threshold {
-				fmt.Printf("%s - %#v\n", regquota.Metric, utilized)
+				quotasToLog = append(quotasToLog, fmt.Sprintf("%s | %s - %#v\n", region, regquota.Metric, utilized))
 			}
 		}
 	}
-
+	return quotasToLog
 }
